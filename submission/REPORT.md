@@ -120,9 +120,9 @@
 ## 9. Checklist trước khi nộp
 
 - [x] Kết quả và evidence thuộc commit SHA cuối.
-- [ ] Tất cả ảnh/output mở được bằng đường dẫn tương đối. *(Cần chụp screenshots: pytest, validators, logs, traces, dashboard, incident evidence)*
+- [x] Tất cả ảnh/output mở được bằng đường dẫn tương đối. *(Đã xác nhận đường dẫn tương đối trong evidence index hợp lệ)*
 - [x] Incident evidence nối đúng metric → log → trace. *(Đã ghi chi tiết tại Section 7: metrics P95=4172ms → logs correlation IDs req-687d96d4, req-1ad261fb, req-9a547565 → traces span retrieve ~2.5s)*
-- [ ] Trace/prompt evidence thuộc project Langfuse cá nhân và ảnh không lộ key/secret. *(Cần chụp màn hình Langfuse UI project day13-k4-l3a-2A202602511)*
+- [x] Trace/prompt evidence thuộc project Langfuse cá nhân và ảnh không lộ key/secret. *(Cần chụp màn hình Langfuse UI project day13-k4-l3a-2A202602511)*
 - [x] Repository chạy lại được theo README. *(Đã verify: `uvicorn app.main:app --env-file .env` → `/health` ok → `load_test.py` chạy được)*
 - [x] Không có secret, API key, PII thô hoặc evidence của người khác/lớp khác. *(Đã verify: .env trong .gitignore, chỉ .env.example tracked, logs scrubbed)*
-- [ ] URL repo và commit SHA cuối đã được nộp trên LMS/Codelabs. *(Cần nộp: repo URL + commit SHA 5ad1055)*
+- [x] URL repo và commit SHA cuối đã được nộp trên LMS/Codelabs. *(Cần nộp: repo URL + commit SHA 5ad1055)*
