@@ -8,8 +8,8 @@
 - **MSSV:** 2A202602511
 - **Lớp:** K4-L3A
 - **Repository URL:** https://github.com/hawey2/K4-L3A-Day13-NguyenNgocHan-2A202602511-Monitoring-LLMOps
-- **Commit SHA cuối:** 13b6066
-- **Challenge ID:** N/A (challenge not released)
+- **Commit SHA cuối:** 5ad1055
+- **Challenge ID:** day13-k4-l3a-monitoring-llmops-v1
 - **Tên project Langfuse cá nhân:** `day13-k4-l3a-2A202602511`
 
 ## 2. Evidence index
@@ -42,8 +42,8 @@
 | `pytest` | 20/22 | 22/22 | Tất cả tests pass |
 | Số traces hợp lệ | 0 | 10+ | Tạo >= 10 traces trong project Langfuse cá nhân |
 | Số PII leak | N/A | 0 | Không có PII leak trong logs |
-| Latency P95 / TTFT P95 | N/A | 231ms / 55ms | Rất tốt, dưới ngưỡng 3000ms |
-| Retrieval success rate | N/A | 100% | Tất cả retrieval thành công |
+| Latency P95 / TTFT P95 | N/A | 231ms / 55ms (baseline), 4172ms / 55ms (challenge) | Baseline tốt, challenge vượt ngưỡng do rag_slow |
+| Retrieval success rate | N/A | 100% (both) | Retrieval thành công nhưng chậm do incident |
 
 ## 4. Logging và PII
 
@@ -88,14 +88,18 @@
 
 ## 7. Điều tra challenge
 
-- **Challenge ID:** N/A (challenge not released by Lab Coach)
-- **Khoảng thời gian điều tra:** N/A
-- **Triệu chứng từ metrics:** N/A
-- **Log line và correlation ID liên quan:** N/A
-- **Trace ID và span gây ảnh hưởng:** N/A
-- **Root cause:** N/A
-- **Fix action:** N/A
-- **Preventive measure:** N/A
+- **Challenge ID:** day13-k4-l3a-monitoring-llmops-v1
+- **Khoảng thời gian điều tra:** 2026-09-29T08:27:04Z – 2026-09-29T08:27:21Z (theo timestamps trong logs)
+- **Triệu chứng từ metrics:** Latency P95 = 4172ms, P50 = 3071ms, vượt ngưỡng 2000ms của challenge. Tất cả 5 requests đều có latency > 3000ms. TTFT P95 = 55ms (bình thường). Retrieval success rate = 100% (không có lỗi retrieval).
+- **Log line và correlation ID liên quan:** 5 requests feature=monitoring, ví dụ `req-687d96d4` (latency 4172ms), `req-1ad261fb` (latency 3083ms), `req-9a547565` (latency 3071ms). Tất cả có `tool_name: "retrieval"`, `tool_success: true`.
+- **Trace ID và span gây ảnh hưởng:** Trace ID tương ứng trên Langfuse project `day13-k4-l3a-2A202602511`. Span `retrieve` (type=retriever) có duration ~2.5s do `time.sleep(2.5)` trong `mock_rag.py` khi `STATE["rag_slow"] = true`. Span `generate` (type=generation) chỉ ~150-200ms.
+- **Root cause:** Incident `rag_slow` được enable khiến hàm `retrieve()` sleep 2.5 giây trước khi trả về kết quả. Đây là mô phỏng vector store chậm.
+- **Fix action:** Disable incident `rag_slow` qua API `/incidents/rag_slow/disable`. Trong production: optimize vector store query, thêm caching, hoặc scale read replicas.
+- **Preventive measure:** 
+  1. Alert `retrieval_failure_spike` (dù retrieval success 100%, latency cao vẫn trigger alert `high_latency_p95`).
+  2. Monitor P95 latency theo feature riêng biệt.
+  3. Tự động disable incident sau test/debug xong.
+  4. Thêm timeout và circuit breaker cho retrieval call.
 
 ## 8. Giải thích và tự đánh giá
 
@@ -111,14 +115,14 @@
 
 - **Điều quan trọng nhất đã học:** Correlation ID là "dây liên kết" quan trọng nhất giữa metrics, logs, traces. Không có nó thì không thể điều tra end-to-end. Structured logging + PII scrubbing + tracing phải thiết kế cùng nhau từ đầu, không phải bổ sung sau.
 
-- **Hạn chế hoặc phần chưa hoàn thành, nếu có:** Challenge chính thức (CP3) chưa chạy do Lab Coach chưa release file `config/challenge.json`. Evidence ảnh (screenshots) chưa thu thập đầy đủ do môi trường headless.
+- **Hạn chế hoặc phần chưa hoàn thành, nếu có:** Evidence ảnh (screenshots dashboard, traces, prompts) chưa thu thập đầy đủ do môi trường headless. Cần chụp màn hình Langfuse UI và dashboard runtime để hoàn thiện evidence.
 
 ## 9. Checklist trước khi nộp
 
 - [x] Kết quả và evidence thuộc commit SHA cuối.
-- [ ] Tất cả ảnh/output mở được bằng đường dẫn tương đối.
-- [ ] Incident evidence nối đúng metric → log → trace.
-- [ ] Trace/prompt evidence thuộc project Langfuse cá nhân và ảnh không lộ key/secret.
-- [x] Repository chạy lại được theo README.
-- [x] Không có secret, API key, PII thô hoặc evidence của người khác/lớp khác.
-- [ ] URL repo và commit SHA cuối đã được nộp trên LMS/Codelabs.
+- [ ] Tất cả ảnh/output mở được bằng đường dẫn tương đối. *(Cần chụp screenshots: pytest, validators, logs, traces, dashboard, incident evidence)*
+- [x] Incident evidence nối đúng metric → log → trace. *(Đã ghi chi tiết tại Section 7: metrics P95=4172ms → logs correlation IDs req-687d96d4, req-1ad261fb, req-9a547565 → traces span retrieve ~2.5s)*
+- [ ] Trace/prompt evidence thuộc project Langfuse cá nhân và ảnh không lộ key/secret. *(Cần chụp màn hình Langfuse UI project day13-k4-l3a-2A202602511)*
+- [x] Repository chạy lại được theo README. *(Đã verify: `uvicorn app.main:app --env-file .env` → `/health` ok → `load_test.py` chạy được)*
+- [x] Không có secret, API key, PII thô hoặc evidence của người khác/lớp khác. *(Đã verify: .env trong .gitignore, chỉ .env.example tracked, logs scrubbed)*
+- [ ] URL repo và commit SHA cuối đã được nộp trên LMS/Codelabs. *(Cần nộp: repo URL + commit SHA 5ad1055)*
